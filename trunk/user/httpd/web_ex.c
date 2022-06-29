@@ -55,6 +55,7 @@
 #include "common.h"
 #include "nvram_x.h"
 #include "httpd.h"
+#include "dbapi.h"
 
 #define GROUP_FLAG_REFRESH 	0
 #define GROUP_FLAG_DELETE 	1
@@ -72,10 +73,15 @@ static int wl_modified = 0;
 static int rt_modified = 0;
 static u64 restart_needed_bits = 0;
 
-static char post_buf[32768] = {0};
+//static char post_buf[32768] = {0};
+static char post_buf[65535] = {0};
+static char post_buf_backup[65535] = {0};
+static char post_json_buf[65535] = {0};
 static char next_host[128] = {0};
 static char SystemCmd[128] = {0};
 static int  group_del_map[MAX_GROUP_COUNT+2];
+
+extern void unescape(char *s);
 
 extern struct evDesc events_desc[];
 extern int auth_nvram_changed;
@@ -95,7 +101,12 @@ nvram_commit_safe(void)
 void
 sys_reboot(void)
 {
+#ifdef MTD_FLASH_32M_REBOOT_BUG
+	doSystem("/sbin/mtd_storage.sh %s", "save");
+	system("/bin/mtd_write -r unlock mtd1");
+#else
 	kill(1, SIGTERM);
+#endif
 }
 
 char *
@@ -2002,7 +2013,163 @@ static int shadowsocks_action_hook(int eid, webs_t wp, int argc, char **argv)
 	websWrite(wp, "<script>restart_needed_time(%d);</script>\n", needed_seconds);
 	return 0;
 }
+#if defined(APP_SHADOWSOCKS)
+static int
+applydb_cgi(webs_t wp, char *urlPrefix, char *webDir, int arg,
+		char *url, char *path, char *query)
+{
+	char *action_mode;
+	char *action_script;
+	char dbjson[100][9999];
+	char dbvar[2048];
+	char dbval[9999];
+	char notify_cmd[128];
+	char db_cmd[128];
+	int i, j;
+	char *result = NULL;
+	char *temp = NULL;
+	char *name = websGetVar(wp, "p","");
+	char scPath[128];
+	char *post_db_buf = post_json_buf;
 
+	action_mode = websGetVar(wp, "action_mode", "");
+	action_script = websGetVar(wp, "action_script", "");
+	char userm[] = "deleting";
+	char useping[] = "ping";
+	char useaping[] = "allping";
+	char usedlink[] = "dlink";
+	char useddlink[] = "ddlink";
+	
+	dbclient client;
+	dbclient_start(&client);
+	if (strlen(name) <= 0) {
+		printf("No \"name\"!\n");
+	}
+	if ( !strcmp("", post_db_buf)){
+		//get
+		sprintf(post_db_buf, "%s", post_buf_backup+1);
+		unescape(post_db_buf);
+		//logmessage("HTTPD", "url: %s,%s", post_db_buf, name);
+		strcpy(post_json_buf, post_db_buf);
+		result = strtok( post_json_buf, "&" );
+		i =0;
+	while( result != NULL )
+	{
+		if (result!=NULL)
+		{
+		strcpy(dbjson[i], result);
+		i++;
+			result = strtok( NULL, "&" );
+		}
+	}
+	for (j =0; j < i; j++)
+	{
+		if(!strncasecmp(dbjson[j], name, strlen(name))){
+				memset(dbvar,'\0',sizeof(dbvar));
+				memset(dbval,'\0',sizeof(dbval));
+				temp=strstr(dbjson[j], "=");
+				strcpy(dbval, temp+1);
+				strncpy(dbvar, dbjson[j], strlen(dbjson[j])-strlen(temp));
+			//logmessage("HTTPD", "name: %s post: %s", dbvar, userm);
+			if(strcmp(dbval,userm) == 0)
+				doSystem("dbus remove %s", dbvar);
+			else if(strcmp(dbval,useping) == 0)
+				doSystem("/etc_ro/ss/ping.sh %s", dbvar);
+			else if(strcmp(dbval,useaping) == 0)
+				doSystem("/etc_ro/ss/allping.sh");
+			else if(strcmp(dbval,usedlink) == 0)
+				doSystem("/usr/bin/update_dlink.sh %s", "start");
+			else if(strcmp(dbval,useddlink) == 0)
+				doSystem("/usr/bin/update_dlink.sh %s", "reset");
+			else
+				doSystem("dbus set %s='%s'", dbvar, dbval);
+		}
+	}
+	} else {
+	//post
+	unescape(post_db_buf);
+	//logmessage("HTTPD", "name: %s post: %s", name, post_json_buf);
+	//logmessage("HTTPD", "name: %s post: %s", name, post_db_buf);
+	strcpy(post_json_buf, post_db_buf);
+	result = strtok( post_json_buf, "&" );
+	i =0;
+	while( result != NULL )
+	{
+		if (result!=NULL)
+		{
+		strcpy(dbjson[i], result);
+		i++;
+			result = strtok( NULL, "&" );
+		}
+	}
+	for (j =0; j < i; j++)
+	{
+		if(!strncasecmp(dbjson[j], name, strlen(name))){
+				memset(dbvar,'\0',sizeof(dbvar));
+				memset(dbval,'\0',sizeof(dbval));
+				temp=strstr(dbjson[j], "=");
+				strcpy(dbval, temp+1);
+				strncpy(dbvar, dbjson[j], strlen(dbjson[j])-strlen(temp));
+			//logmessage("HTTPD", "name: %s post: %s", dbvar, dbval);
+			if(strcmp(dbval,userm) == 0)
+				doSystem("dbus remove %s", dbvar);
+			else if(strcmp(dbval,useping) == 0)
+				doSystem("/etc_ro/ss/ping.sh %s", dbvar);
+			else if(strcmp(dbval,useaping) == 0)
+				doSystem("/etc_ro/ss/allping.sh");
+			else if(strcmp(dbval,usedlink) == 0)
+				doSystem("/usr/bin/update_dlink.sh %s", "start");
+			else if(strcmp(dbval,useddlink) == 0)
+				doSystem("/usr/bin/update_dlink.sh %s", "reset");
+			else
+				doSystem("dbus set %s='%s'", dbvar, dbval);
+		}
+	}
+	}
+	dbclient_end(&client);
+	doSystem("/sbin/mtd_storage.sh %s", "save");
+	return 0;
+}
+
+static void
+do_applydb_cgi(char *url, FILE *stream)
+{
+    //applydb_cgi(url, stream);
+	applydb_cgi(stream, NULL, NULL, 0, url, NULL, NULL);
+}
+
+static int db_print(dbclient* client, webs_t wp, char* prefix, char* key, char* value) {
+	websWrite(wp,"o[\"%s\"]=\'%s\';\n", key, value);
+	return 0;
+}
+
+static void
+do_dbconf(char *url, FILE *stream)
+{
+	char *name = NULL;
+	char * delim = ",";
+	char *pattern = websGetVar(wp, "p","");
+	char *dup_pattern = strdup(pattern);
+	char *sepstr = dup_pattern;
+	dbclient client;
+	dbclient_start(&client);
+	if(strstr(sepstr,delim)) {
+		for(name = strsep(&sepstr, delim); name != NULL; name = strsep(&sepstr, delim)) {
+			websWrite(stream,"var db_%s=(function() {\nvar o={};\n", name);
+
+			dbclient_list(&client, name, stream, db_print);
+			websWrite(stream,"return o;\n})();\n" );
+		}
+	} else {
+		name= strdup(pattern);
+		websWrite(stream,"var db_%s=(function() {\nvar o={};\n", name);
+		dbclient_list(&client, name, stream, db_print);
+		websWrite(stream,"return o;\n})();\n" );
+	}
+	free(dup_pattern);
+	dbclient_end(&client);
+}
+#endif
 static int shadowsocks_status_hook(int eid, webs_t wp, int argc, char **argv)
 {
 	int ss_status_code = pids("ss-redir");
@@ -2139,6 +2306,15 @@ static int caddy_status_hook(int eid, webs_t wp, int argc, char **argv)
 {
 	int caddy_status_code = pids("caddy_filebrowser");
 	websWrite(wp, "function caddy_status() { return %d;}\n", caddy_status_code);
+	return 0;
+}
+#endif
+
+#if defined (APP_ZEROTIER)
+static int zerotier_status_hook(int eid, webs_t wp, int argc, char **argv)
+{
+	int zerotier_status_code = pids("zerotier-one");
+	websWrite(wp, "function zerotier_status() { return %d;}\n", zerotier_status_code);
 	return 0;
 }
 #endif
@@ -2367,6 +2543,16 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 #else
 	int found_app_caddy = 0;
 #endif
+#if defined(APP_WYY)
+	int found_app_wyy = 1;
+#else
+	int found_app_wyy = 0;
+#endif
+#if defined(APP_ZEROTIER)
+	int found_app_zerotier = 1;
+#else
+	int found_app_zerotier = 0;
+#endif
 #if defined(APP_ADBYBY)
 	int found_app_adbyby = 1;
 #else
@@ -2568,6 +2754,8 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 		"function found_app_adbyby() { return %d;}\n"
 		"function found_app_smartdns() { return %d;}\n"
 		"function found_app_frp() { return %d;}\n"
+		"function found_app_wyy() { return %d;}\n"
+		"function found_app_zerotier() { return %d;}\n"
 		"function found_app_aliddns() { return %d;}\n"
 		"function found_app_xupnpd() { return %d;}\n"
 		"function found_app_mentohust() { return %d;}\n",
@@ -2597,6 +2785,8 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 		found_app_adbyby,
 		found_app_smartdns,
 		found_app_frp,
+		found_app_wyy,
+		found_app_zerotier,
 		found_app_aliddns,
 		found_app_xupnpd,
 		found_app_mentohust
@@ -3353,16 +3543,7 @@ apply_cgi(const char *url, webs_t wp)
 	}
 	else if (!strcmp(value, " Reboot "))
 	{
-	    int reboot_mode = nvram_get_int("reboot_mode");
-	    if ( reboot_mode == 0)
-	{
 	    sys_reboot();
-	}
-	else if ( reboot_mode == 1)
-	{
-		doSystem("/sbin/mtd_storage.sh %s", "save");
-		system("mtd_write -r unlock mtd1");
-	}
 		return 0;
 	}
 	else if (!strcmp(value, " Shutdown "))
@@ -3762,7 +3943,40 @@ do_uncgi_query(const char *query)
 	if (strlen(post_buf) > 0)
 		init_cgi(post_buf);
 }
+#if defined(APP_SHADOWSOCKS)
+static void do_html_post_and_get(char *url, FILE *stream, int len, char *boundary){
+	char *query = NULL;
 
+	init_cgi(NULL);
+
+	memset(post_buf, 0, sizeof(post_buf));
+	memset(post_buf_backup, 0, sizeof(post_buf));
+	memset(post_json_buf, 0, sizeof(post_json_buf));
+
+	if (fgets(post_buf, MIN(len+1, sizeof(post_buf)), stream)){
+		len -= strlen(post_buf);
+
+		while (len--)
+			(void)fgetc(stream);
+	}
+	sprintf(post_json_buf, "%s", post_buf);
+
+	query = url;
+	query = strsep(&query, "?");
+
+	if (query && strlen(query) > 0){
+		if (strlen(post_buf) > 0)
+			sprintf(post_buf_backup, "?%s&%s", post_buf, query);
+		else
+			sprintf(post_buf_backup, "?%s", query);
+		sprintf(post_buf, "%s", post_buf_backup+1);
+	}
+	else if (strlen(post_buf) > 0)
+		sprintf(post_buf_backup, "?%s", post_buf);
+	//websScan(post_buf_backup);
+	init_cgi(post_buf);
+}
+#endif
 static void
 do_html_apply_post(const char *url, FILE *stream, int clen, char *boundary)
 {
@@ -3922,6 +4136,12 @@ static char syslog_txt[] =
 "filename=syslog.txt"
 ;
 
+static char no_cache_IE7[] =
+"Cache-Control: no-cache\r\n"
+"Pragma: no-cache\r\n"
+"Expires: 0"
+;
+
 static char no_cache_IE[] =
 "X-UA-Compatible: IE=edge\r\n"
 "Cache-Control: no-store, no-cache, must-revalidate\r\n"
@@ -4026,6 +4246,10 @@ struct mime_handler mime_handlers[] = {
 	/* no-cached POST objects */
 	{ "update.cgi*", "text/javascript", no_cache_IE, do_html_apply_post, do_update_cgi, 1 },
 	{ "apply.cgi*", "text/html", no_cache_IE, do_html_apply_post, do_apply_cgi, 1 },
+#if defined(APP_SHADOWSOCKS)
+	{ "applydb.cgi*", "text/html", no_cache_IE7, do_html_post_and_get, do_applydb_cgi, 1 },
+	{ "dbconf", "text/javascript", no_cache_IE, do_html_apply_post, do_dbconf, 0 },
+#endif
 
 	{ "upgrade.cgi*",    "text/html", no_cache_IE, do_upgrade_fw_post, do_upgrade_fw_cgi, 1 },
 	{ "restore_nv.cgi*", "text/html", no_cache_IE, do_restore_nv_post, do_restore_nv_cgi, 1 },
@@ -4351,4 +4575,3 @@ struct ej_handler ej_handlers[] =
 	{ "openvpn_cli_cert_hook", openvpn_cli_cert_hook},
 	{ NULL, NULL }
 };
-

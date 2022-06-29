@@ -1,16 +1,14 @@
-##2020.03.05##
-* 修复自动编译固件过大问题
-* Dnsmasq增加禁止解析IPV6和最小TTL(取自lean lede)
-
-##2020.03.04##
-* 增加简单订阅功能
-* 替换SSP里的kmsocks,srelay为L大SSP最新使用的ipt2socks,micorsocks
-* SSP增加自动配置smartdns选项。
-* 重新用go 1.14编译了v2ray的二进制文件
-* 修复gfwlist显示0的问题
-* 内核SO_REUSEPORT，Trojan和SSR支持多线程
-* smartdns增加服务器组选项，可以配合gfwlist使用
-
+##2020.05.07##
+* 增加zerotier 1.4.6内网穿透
+* openssl更新1.1.1g
+* 取消32M FLASH的重启选项,默认使用MTD UNLOCK方式重启
+* trojan升级到1.15.1,集成到源码动态编译
+* MT7615增加5.0.4.0驱动
+* SSP增加关键字过滤,修复V2 HTTP
+* SSP界面增加节点编辑,复制功能
+* smartdns升级到最新源码
+* 同步hanwckf的最新源码
+* 自动编译增加红米2100和小米2100固件
 
 ##往期更新日志##
 *https://github.com/chongshengB/rt-n56u/blob/master/changelog-old.md

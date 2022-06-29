@@ -153,7 +153,7 @@ EOF
 
 del_cron()
 {
-	sed -i '/adbchk/d' /etc/storage/cron/crontabs/$http_username
+	sed -i '/adbyby/d' /etc/storage/cron/crontabs/$http_username
 }
 
 ip_rule()
@@ -215,8 +215,18 @@ add_dns()
 	mkdir -p /etc/storage/dnsmasq-adbyby.d
 	mkdir -p /tmp/dnsmasq.d
 	anti_ad
+	block_ios=`nvram get block_ios`
+	block_douyin=`nvram get block_douyin`
 	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_esc"'\n",$0)}' $PROG_PATH/adesc.conf > /etc/storage/dnsmasq-adbyby.d/06-dnsmasq.esc
 	awk '!/^$/&&!/^#/{printf("address=/%s/'"0.0.0.0"'\n",$0)}' $PROG_PATH/adblack.conf > /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black
+	[ $block_ios -eq 1 ] && echo 'address=/mesu.apple.com/0.0.0.0' >> /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black
+	if [ $block_douyin -eq 1 ]; then
+  cat <<-EOF >/etc/storage/dnsmasq-adbyby.d/08-dnsmasq.douyin
+address=/api.amemv.com/0.0.0.0
+address=/.snssdk.com/0.0.0.0
+address=/.douyin.com/0.0.0.0
+		EOF
+	fi
 	sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf
 	cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
 conf-dir=/etc/storage/dnsmasq-adbyby.d
@@ -326,7 +336,7 @@ anti_ad=`nvram get anti_ad`
 anti_ad_link=`nvram get anti_ad_link`
 nvram set anti_ad_count=0
 if [ "$anti_ad" = "1" ]; then
-wget --no-check-certificate -O /etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf $anti_ad_link
+curl -k -s -o /etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf --connect-timeout 5 --retry 3 $anti_ad_link
 if [ ! -f "/etc/storage/dnsmasq-adbyby.d/anti-ad-for-dnsmasq.conf" ]; then
 	logger -t "adbyby" "anti_AD下载失败！"
 else
@@ -345,7 +355,7 @@ grep -v '^#' /etc/storage/adbyby_host.sh | grep -v "^$" > $PROG_PATH/hostlist.tx
 for ip in `cat $PROG_PATH/hostlist.txt`
 do
 logger -t "adbyby" "正在下载: $ip"
-wget --no-check-certificate -O /tmp/host.txt $ip
+curl -k -s -o /tmp/host.txt --connect-timeout 5 --retry 3 $ip
 if [ ! -f "/tmp/host.txt" ]; then
 	logger -t "adbyby" "$ip 下载失败！"
 else

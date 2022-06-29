@@ -78,6 +78,10 @@ ifeq ($(CONFIG_FIRMWARE_INCLUDE_ARIA),y)
 ARIA2_ENABLED=y
 endif
 
+ifeq ($(CONFIG_FIRMWARE_INCLUDE_REDSOCKS),y)
+REDSOCKS_ENABLED=y
+endif
+
 ifneq ($(filter y,$(CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_CMD) $(CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_CLIENT) $(CONFIG_FIRMWARE_INCLUDE_SOFTETHERVPN_SERVER)),)
 SOFTETHERVPN_ENABLE=y
 endif
@@ -131,14 +135,20 @@ dir_y						+= xl2tpd
 dir_$(CONFIG_FIRMWARE_INCLUDE_RPL2TP)		+= rp-l2tp
 dir_y						+= lldt
 dir_y						+= scripts
-dir_$(CONFIG_FIRMWARE_INCLUDE_MICROSOCKS)                       +=microsocks
-dir_$(CONFIG_FIRMWARE_INCLUDE_IPT2SOCKS)            +=ipt2socks
+dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)						+= skipdbv2
+dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)						+= chinadns-ng
+dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)						+= lua51
+dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)                       +=microsocks
+dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)            +=ipt2socks
 dir_$(CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME)      	+= adguardhome
-dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)      	+= jq
-dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)	        += pdnsd
+dir_$(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS)	        += dns2tcp
+ifeq ($(CONFIG_FIRMWARE_INCLUDE_SHADOWSOCKS),y)
 dir_$(CONFIG_FIRMWARE_INCLUDE_V2RAY)	        += v2ray
 dir_$(CONFIG_FIRMWARE_INCLUDE_TROJAN)	        += trojan
-dir_$(CONFIG_FIRMWARE_INCLUDE_KUMASOCKS)	+= kumasocks
+endif
+dir_$(CONFIG_FIRMWARE_INCLUDE_SSOBFS)                      += simple-obfs
+dir_$(CONFIG_FIRMWARE_INCLUDE_ZEROTIER)	                       += zerotier
+dir_$(CONFIG_FIRMWARE_INCLUDE_WYY)						+= unblockmusic
 dir_$(OPENSSH_ENABLED)				+= openssh
 dir_$(DROPBEAR_ENABLED)				+= dropbear
 dir_$(CONFIG_FIRMWARE_INCLUDE_HTOP)		+= htop
@@ -175,6 +185,9 @@ dir_$(CONFIG_FIRMWARE_INCLUDE_MENTOHUST)		+= mentohust
 dir_$(CONFIG_FIRMWARE_INCLUDE_SMARTDNS)		+= smartdns
 dir_$(CONFIG_FIRMWARE_INCLUDE_CADDY)		+= caddy
 dir_$(CONFIG_FIRMWARE_INCLUDE_xTUN) 			+= xTun
+dir_$(CONFIG_FIRMWARE_INCLUDE_WING) 			+= wing
+dir_$(CONFIG_FIRMWARE_INCLUDE_WING) 			+= ipt2socks
+dir_$(CONFIG_FIRMWARE_INCLUDE_REDSOCKS)			+= redsocks
 
 ifdef CONFIG_BLK_DEV_SD
 dir_$(CONFIG_FIRMWARE_INCLUDE_HDPARM)		+= hdparm
